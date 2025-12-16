@@ -19,7 +19,7 @@ services:
     image: redis:7-alpine
     command: ["redis-server", "--save", "", "--appendonly", "no"]
     ports:
-      - "6379:6379"
+      - "6380:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -28,7 +28,7 @@ services:
 
   user-service:
     build:
-      context: ./UserService
+      context: ../UserService
       dockerfile: Dockerfile
     depends_on:
       postgres:
@@ -57,7 +57,7 @@ services:
 
   auth-service:
     build:
-      context: ./AuthService
+      context: ../AuthService
       dockerfile: Dockerfile
     depends_on:
       postgres:
@@ -133,7 +133,7 @@ services:
 
   api-gateway:
     build:
-      context: ./APIGW
+      context: ../APIGW
       dockerfile: Dockerfile
     depends_on:
       redis:
