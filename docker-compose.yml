@@ -1,13 +1,15 @@
+version: "3.9"
+
 services:
   postgres:
-    image: postgres:16-alpine
+    image: postgres:${POSTGRES_IMAGE_TAG:-16-alpine}
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_HOST_PORT:-5432}:5432"
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - ${POSTGRES_VOLUME_NAME:-postgres-data}:/var/lib/postgresql/data
       - ./docker/postgres:/docker-entrypoint-initdb.d
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
@@ -16,10 +18,10 @@ services:
       retries: 10
 
   redis:
-    image: redis:7-alpine
+    image: redis:${REDIS_IMAGE_TAG:-7-alpine}
     command: ["redis-server", "--save", "", "--appendonly", "no"]
     ports:
-      - "6380:6379"
+      - "${REDIS_HOST_PORT:-6380}:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -34,16 +36,18 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      NODE_ENV: production
+      NODE_ENV: ${USER_SERVICE_NODE_ENV:-production}
       HTTP_HOST: 0.0.0.0
-      HTTP_PORT: 4500
-      GRPC_BIND_ADDRESS: 0.0.0.0:50052
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/pocketlol_users?schema=public
-      LOG_LEVEL: info
-      SERVICE_AUTH_TOKEN: dev-service-token
+      HTTP_PORT: ${USER_SERVICE_HTTP_PORT:-4500}
+      GRPC_BIND_ADDRESS: 0.0.0.0:${USER_SERVICE_GRPC_PORT:-50052}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${USER_SERVICE_DB:-pocketlol_users}?schema=public
+      LOG_LEVEL: ${USER_SERVICE_LOG_LEVEL:-info}
+      SERVICE_AUTH_TOKEN: ${SERVICE_AUTH_TOKEN:?SERVICE_AUTH_TOKEN is required}
+      AUTH_SERVICE_ADDRESS: auth-service:${AUTH_SERVICE_GRPC_PORT:-50051}
+      AUTH_SERVICE_TOKEN: ${SERVICE_AUTH_TOKEN:?SERVICE_AUTH_TOKEN is required}
     ports:
-      - "4500:4500"
-      - "50052:50052"
+      - "${USER_SERVICE_HTTP_HOST_PORT:-4500}:${USER_SERVICE_HTTP_PORT:-4500}"
+      - "${USER_SERVICE_GRPC_HOST_PORT:-50052}:${USER_SERVICE_GRPC_PORT:-50052}"
     healthcheck:
       test:
         [
@@ -65,61 +69,24 @@ services:
       user-service:
         condition: service_healthy
     environment:
-      NODE_ENV: production
+      NODE_ENV: ${AUTH_SERVICE_NODE_ENV:-production}
       HTTP_HOST: 0.0.0.0
-      HTTP_PORT: 4000
-      GRPC_BIND_ADDRESS: 0.0.0.0:50051
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/pocketlol_auth?schema=public
-      AUTH_JWT_PRIVATE_KEY: |
-        -----BEGIN PRIVATE KEY-----
-        MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC/b6P1NXvUMKB/
-        BEYelrQHaTDoc7S48fAiEITGjJ2IjwsADcrI10omAyDpb1CVAiw53o2f7aMR08fK
-        uBI+zm1yKSd6DKObri3wQ175pMOitqUPPLUEFgWGK+PDv7qnyvAsdvTDSJ41SLIf
-        onneZ8ejNohz+ZGoNJ3IFFuI835UfNqQsDZnx0AIufeevvuDIrj8UoDR2nziWOov
-        6WJuVJYhAyyEdxJCKreZKyjGg6+do1/Tyt+mO2Vg6ZGuQbbjNKR0+0xv58NZhiPI
-        DkosywKrA1vJCmSl01miwuR1mM1AAH9yRUqFybGMAJtXgBKcnc/AOFDqN03H3ug8
-        XUrX7ZNVAgMBAAECggEAK71YWuhzeJH7ucnCM67/R0ozkIkPW8p7sWzQyYTLYa49
-        Ny/vi2AVYwYH+Q4j/UfXzwkYltf3EFWxKpJQKOWFgDYC/RHyN9neSS07gBKzWHQe
-        1pJqUZqufG9+xPUDst7dbWtolU38R/RqLmwzKCvSI2qMVuNI8oPDITn1iB8KWEch
-        Xnn8VPJWRVCeBp8/xtwrHRef5cVbGeTF0RORhS57FseXl1BrC/urP9KN6vbt1O/B
-        ngsYac7k9QpXlxoF0jlhUG2zcOOtoxsLYsxJ0OhOU225UE+/2SF7NTqCvIkxRegh
-        B1TkF9He+rOeZCwzo9QNJKHW0UMlu6wHCJ6CVMbOqQKBgQDqNexwDyPhRnT0Rm4W
-        scc0N3etgguERXfyjtz1K+slwXreXcIKKajVO6B7MACFqxHVTrLeA19kj9i3Tf/a
-        WjuMcgWGwfaUZ+714ajvUv9RaZvwEwu/KmeGgkYuUCLpr+7Drr2nHRkpP4Era5Wi
-        gb+keB3LhsSNWyFAC1VPxrs5PwKBgQDRPvopUWC9/b/g249BGg1JUheAGOhuAkMS
-        IYVJlW517M37xAbzb8EwGAgRGLzMiSAmIkPVYCCUmSOC67xKFXvsLg8/dqIwgM/L
-        OQuFOqlGCDLsI0GPAKWjfAaK3/K6t8+xCVo9iXscI0kWIqXijAz2Tj3RNXW1mxwv
-        /lTUVtPaawKBgEC/o5vfM6Yl2lNl3S18/HtdEkLvfsuUgPKXuFI3UAziDlvHQ8uX
-        dMtubpFf1eUeRBHabeyethKRCfKzJ5Zv96J+KzT0Dn08tn1XY2K2aUtSjP+z5D13
-        NaOkBE7tbJl6P+HtPxUiIECdA9LDLVz9zcNkSahom5IQrYKNH4qsgDn1AoGAWdN1
-        ROOAak9SXc8jckkixwUMvZrzvLYP4Oqu82XI46riyl/etAaXonPOkrhR5GRBft1a
-        zXDUy7Xp/rwAOrV6W2tydEYTXksN6Sn1/h2uqTe/1ItWC3O1p7cIf/mfk/Rwnolr
-        SduJFA05xNze5aBFuD7iXrtaarnJofjGpdkYXT0CgYEAwatOp0bGea5gc4yNsQoF
-        9DrMpotCDDonTurV/gID2NtWrG1LvFhx5E2/Qw19GuNYBfTmeH3jxalYEWkAWgyC
-        TdHb0inrj3bre3AeAO31bbBD5dgClFDJJcmyM+piEUbDTobqiOOnMo3hsrPTG5eE
-        UV73uF7/hlqFQ3mymsjOS4Y=
-        -----END PRIVATE KEY-----
-      AUTH_JWT_PUBLIC_KEY: |
-        -----BEGIN PUBLIC KEY-----
-        MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAv2+j9TV71DCgfwRGHpa0
-        B2kw6HO0uPHwIhCExoydiI8LAA3KyNdKJgMg6W9QlQIsOd6Nn+2jEdPHyrgSPs5t
-        ciknegyjm64t8ENe+aTDoralDzy1BBYFhivjw7+6p8rwLHb0w0ieNUiyH6J53mfH
-        ozaIc/mRqDSdyBRbiPN+VHzakLA2Z8dACLn3nr77gyK4/FKA0dp84ljqL+liblSW
-        IQMshHcSQiq3mSsoxoOvnaNf08rfpjtlYOmRrkG24zSkdPtMb+fDWYYjyA5KLMsC
-        qwNbyQpkpdNZosLkdZjNQAB/ckVKhcmxjACbV4ASnJ3PwDhQ6jdNx97oPF1K1+2T
-        VQIDAQAB
-        -----END PUBLIC KEY-----
-      AUTH_JWT_KEY_ID: auth-service-dev
-      ACCESS_TOKEN_TTL: 900
-      REFRESH_TOKEN_TTL: 604800
-      REFRESH_TOKEN_ROTATION: "true"
-      SERVICE_AUTH_TOKEN: dev-service-token
-      USER_SERVICE_ADDRESS: user-service:50052
-      USER_SERVICE_TOKEN: dev-service-token
-      LOG_LEVEL: info
+      HTTP_PORT: ${AUTH_SERVICE_HTTP_PORT:-4000}
+      GRPC_BIND_ADDRESS: 0.0.0.0:${AUTH_SERVICE_GRPC_PORT:-50051}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${AUTH_SERVICE_DB:-pocketlol_auth}?schema=public
+      AUTH_JWT_PRIVATE_KEY: ${AUTH_JWT_PRIVATE_KEY:?AUTH_JWT_PRIVATE_KEY is required}
+      AUTH_JWT_PUBLIC_KEY: ${AUTH_JWT_PUBLIC_KEY:?AUTH_JWT_PUBLIC_KEY is required}
+      AUTH_JWT_KEY_ID: ${AUTH_JWT_KEY_ID:?AUTH_JWT_KEY_ID is required}
+      ACCESS_TOKEN_TTL: ${AUTH_ACCESS_TOKEN_TTL:-900}
+      REFRESH_TOKEN_TTL: ${AUTH_REFRESH_TOKEN_TTL:-604800}
+      REFRESH_TOKEN_ROTATION: ${AUTH_REFRESH_TOKEN_ROTATION:-true}
+      SERVICE_AUTH_TOKEN: ${SERVICE_AUTH_TOKEN:?SERVICE_AUTH_TOKEN is required}
+      USER_SERVICE_ADDRESS: user-service:${USER_SERVICE_GRPC_PORT:-50052}
+      USER_SERVICE_TOKEN: ${SERVICE_AUTH_TOKEN:?SERVICE_AUTH_TOKEN is required}
+      LOG_LEVEL: ${AUTH_SERVICE_LOG_LEVEL:-info}
     ports:
-      - "4000:4000"
-      - "50051:50051"
+      - "${AUTH_SERVICE_HTTP_HOST_PORT:-4000}:${AUTH_SERVICE_HTTP_PORT:-4000}"
+      - "${AUTH_SERVICE_GRPC_HOST_PORT:-50051}:${AUTH_SERVICE_GRPC_PORT:-50051}"
     healthcheck:
       test:
         [
@@ -143,33 +110,33 @@ services:
       user-service:
         condition: service_healthy
     environment:
-      NODE_ENV: production
+      NODE_ENV: ${GATEWAY_NODE_ENV:-production}
       SERVER_HOST: 0.0.0.0
-      SERVER_PORT: 3000
-      SERVER_BODY_LIMIT: 1048576
-      SERVER_TRUST_PROXY: "true"
-      LOG_LEVEL: info
-      ENABLE_REQUEST_LOGGING: "true"
+      SERVER_PORT: ${GATEWAY_HTTP_PORT:-3000}
+      SERVER_BODY_LIMIT: ${GATEWAY_BODY_LIMIT:-1048576}
+      SERVER_TRUST_PROXY: ${GATEWAY_TRUST_PROXY:-true}
+      LOG_LEVEL: ${GATEWAY_LOG_LEVEL:-info}
+      ENABLE_REQUEST_LOGGING: ${GATEWAY_REQUEST_LOGGING:-true}
       REDIS_URL: redis://redis:6379
-      RATE_LIMIT_ANON: 20
-      RATE_LIMIT_AUTH: 100
-      RATE_LIMIT_ADMIN: 500
-      AUTH_JWKS_URL: http://auth-service:4000/.well-known/jwks.json
-      AUTH_AUDIENCE: pocketlol-services
-      AUTH_ISSUER: auth-service
-      CONTENT_CACHE_TTL_SECONDS: 120
-      STREAMING_SERVICE_URL: http://mock-streaming:3000
-      CONTENT_SERVICE_URL: http://mock-content:3000
-      AUTH_SERVICE_URL: http://auth-service:4000
-      USER_SERVICE_URL: http://user-service:4500
-      UPLOAD_SERVICE_URL: http://mock-upload:3000
-      ENGAGEMENT_SERVICE_URL: http://mock-engagement:3000
-      SEARCH_SERVICE_URL: http://mock-search:3000
-      SERVICE_AUTH_TOKEN: dev-service-token
-      ENABLE_TELEMETRY: "false"
-      SERVICE_NAME: pocketlol-gateway
+      RATE_LIMIT_ANON: ${GATEWAY_RATE_LIMIT_ANON:-20}
+      RATE_LIMIT_AUTH: ${GATEWAY_RATE_LIMIT_AUTH:-100}
+      RATE_LIMIT_ADMIN: ${GATEWAY_RATE_LIMIT_ADMIN:-500}
+      AUTH_JWKS_URL: http://auth-service:${AUTH_SERVICE_HTTP_PORT:-4000}/.well-known/jwks.json
+      AUTH_AUDIENCE: ${GATEWAY_AUTH_AUDIENCE:-pocketlol-services}
+      AUTH_ISSUER: ${GATEWAY_AUTH_ISSUER:-auth-service}
+      CONTENT_CACHE_TTL_SECONDS: ${GATEWAY_CONTENT_CACHE_TTL:-120}
+      STREAMING_SERVICE_URL: ${STREAMING_SERVICE_URL:-http://mock-streaming:3000}
+      CONTENT_SERVICE_URL: ${CONTENT_SERVICE_URL:-http://mock-content:3000}
+      AUTH_SERVICE_URL: http://auth-service:${AUTH_SERVICE_HTTP_PORT:-4000}
+      USER_SERVICE_URL: http://user-service:${USER_SERVICE_HTTP_PORT:-4500}
+      UPLOAD_SERVICE_URL: ${UPLOAD_SERVICE_URL:-http://mock-upload:3000}
+      ENGAGEMENT_SERVICE_URL: ${ENGAGEMENT_SERVICE_URL:-http://mock-engagement:3000}
+      SEARCH_SERVICE_URL: ${SEARCH_SERVICE_URL:-http://mock-search:3000}
+      SERVICE_AUTH_TOKEN: ${SERVICE_AUTH_TOKEN:?SERVICE_AUTH_TOKEN is required}
+      ENABLE_TELEMETRY: ${GATEWAY_ENABLE_TELEMETRY:-false}
+      SERVICE_NAME: ${GATEWAY_SERVICE_NAME:-pocketlol-gateway}
     ports:
-      - "3000:3000"
+      - "${GATEWAY_HTTP_HOST_PORT:-3000}:${GATEWAY_HTTP_PORT:-3000}"
     healthcheck:
       test:
         [

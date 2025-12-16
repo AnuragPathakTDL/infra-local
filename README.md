@@ -6,27 +6,81 @@ This workspace contains the PocketLOL API Gateway together with the Auth and Use
 
 - Docker 24+ (or Docker Desktop)
 
-## Quick Start
+## Environment Setup
 
-1. From the repository root, build and launch every service plus PostgreSQL and Redis:
+1. Copy the template and populate your secrets (JWT keys, service token, etc.). The populated file is Git-ignored by default:
+
+    ```bash
+    cp infra-local/.env.example infra-local/.env
+    ```
+
+2. Edit `infra-local/.env` and update at least the following values:
+    - `SERVICE_AUTH_TOKEN` — shared token for internal service auth
+    - `AUTH_JWT_PRIVATE_KEY` / `AUTH_JWT_PUBLIC_KEY` — PEM-encoded keys for AuthService
+    - Database credentials if you are not using the defaults
+
+    Keep the PEM content wrapped in quotes so Docker Compose injects the line breaks correctly. Never commit the filled `.env` file.
+
+## Build, Run, and Rebuild
+
+From the repository root (or inside `infra-local/`), use the commands below.
+
+- **Initial build and launch**
 
    ```bash
-   docker compose up --build
+   docker compose --env-file .env up --build
    ```
 
-2. The first run seeds the `pocketlol_auth` and `pocketlol_users` databases and applies Prisma migrations automatically.
-3. Once the containers report healthy, the endpoints are available at:
-   - API Gateway: <http://localhost:3000> (health at `/health/live`)
-   - Auth Service: <http://localhost:4000> (JWKS at `/.well-known/jwks.json`)
-   - User Service: <http://localhost:4500> (gRPC on `localhost:50052`)
+   The first run seeds `pocketlol_auth` and `pocketlol_users` and applies Prisma migrations automatically. After the health checks pass, services are reachable at:
+  - API Gateway → <http://localhost:${GATEWAY_HTTP_HOST_PORT:-3000}>
+  - Auth Service → <http://localhost:${AUTH_SERVICE_HTTP_HOST_PORT:-4000}>
+  - User Service → <http://localhost:${USER_SERVICE_HTTP_HOST_PORT:-4500}> (gRPC at `localhost:${USER_SERVICE_GRPC_HOST_PORT:-50052}`)
 
-The shared service token defaults to `dev-service-token` and is distributed automatically between containers. Update it in `docker-compose.yml` if you need a different value.
+- **Stop the stack** (graceful shutdown)
+
+   ```bash
+   docker compose --env-file .env down
+   ```
+
+- **Rebuild after code changes** (forces image rebuild before starting)
+
+   ```bash
+   docker compose --env-file .env up --build --force-recreate --remove-orphans
+   ```
+
+- **Recreate without rebuilding images** (useful after config changes only)
+
+   ```bash
+   docker compose --env-file .env up --force-recreate
+   ```
+
+- **Clean everything** (containers, networks, volumes)
+
+   ```bash
+   docker compose --env-file .env down --volumes --remove-orphans
+   ```
+
+   Run this when you want to reset databases or caches.
+
+The shared service token is read from `.env` so all containers use the same value automatically.
 
 ## Data & Migrations
 
 - PostgreSQL runs inside Docker with a persistent `postgres-data` volume.
 - Databases `pocketlol_auth` and `pocketlol_users` are created via `docker/postgres/01-init-databases.sql`.
 - Each service entrypoint runs `prisma migrate deploy` (or `prisma db push` when no migrations exist) before starting the HTTP server.
+
+## GitHub & CI/CD
+
+- Store sensitive values (service token, JWT keys, database passwords) as GitHub Secrets. Suggested names: `INFRA_SERVICE_AUTH_TOKEN`, `INFRA_JWT_PRIVATE_KEY`, etc.
+- CI workflows can reconstruct the `.env` file from secrets and execute
+
+   ```bash
+   docker compose --env-file .env up --build --detach
+   ```
+
+   on the runner or target host.
+- Self-hosted runners should mount this directory so they reuse the same compose stack as developers.
 
 ## Local Development Outside Docker
 
@@ -36,4 +90,4 @@ You can still run services directly with Node.js. Refer to the service-specific 
 - [AuthService/README.md](AuthService/README.md)
 - [UserService/README.md](UserService/README.md)
 
-Remember to keep the environment variables in `.env` files aligned with your chosen runtime (Docker or bare metal).
+Keep each service's standalone `.env` files in sync with the values defined in `infra-local/.env` (especially `SERVICE_AUTH_TOKEN` and database connection strings) to avoid mismatched credentials.
