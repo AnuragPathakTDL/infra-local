@@ -1,6 +1,6 @@
 # PocketLOL Microservices
 
-This workspace contains the PocketLOL API Gateway together with the Auth and User services. The stack now ships with a shared Docker Compose workflow so you can run the full slice locally with one command.
+This workspace contains the complete PocketLOL microservices stack including the API Gateway, Auth Service, User Service, Content Service, Engagement Service, Search Service, Streaming Service, and Upload Service. The stack ships with a unified Docker Compose workflow so you can run the full architecture locally with one command.
 
 ## Prerequisites
 
@@ -35,6 +35,11 @@ From the repository root (or inside `infra-local/`), use the commands below.
   - API Gateway → <http://localhost:${GATEWAY_HTTP_HOST_PORT:-3000}>
   - Auth Service → <http://localhost:${AUTH_SERVICE_HTTP_HOST_PORT:-4000}>
   - User Service → <http://localhost:${USER_SERVICE_HTTP_HOST_PORT:-4500}> (gRPC at `localhost:${USER_SERVICE_GRPC_HOST_PORT:-50052}`)
+  - Content Service → <http://localhost:${CONTENT_SERVICE_HTTP_HOST_PORT:-4600}>
+  - Engagement Service → <http://localhost:${ENGAGEMENT_SERVICE_HTTP_HOST_PORT:-4700}>
+  - Search Service → <http://localhost:${SEARCH_SERVICE_HTTP_HOST_PORT:-4800}>
+  - Streaming Service → <http://localhost:${STREAMING_SERVICE_HTTP_HOST_PORT:-4900}>
+  - Upload Service → <http://localhost:${UPLOAD_SERVICE_HTTP_HOST_PORT:-5000}>
 
 - **Stop the stack** (graceful shutdown)
 
@@ -86,8 +91,13 @@ The shared service token is read from `.env` so all containers use the same valu
 
 You can still run services directly with Node.js. Refer to the service-specific guides:
 
-- [APIGW/README.md](APIGW/README.md)
-- [AuthService/README.md](AuthService/README.md)
-- [UserService/README.md](UserService/README.md)
+- [APIGW/README.md](../APIGW/README.md)
+- [AuthService/README.md](../AuthService/README.md)
+- [UserService/README.md](../UserService/README.md)
+- [ContentService/README.md](../ContentService/README.md)
+- [EngagementService/README.md](../EngagementService/README.md)
+- [SearchService/README.md](../SearchService/README.md)
+- [StreamingService/README.md](../StreamingService/README.md)
+- [UploadService/README.md](../UploadService/README.md)
 
 Keep each service's standalone `.env` files in sync with the values defined in `infra-local/.env` (especially `SERVICE_AUTH_TOKEN` and database connection strings) to avoid mismatched credentials.
