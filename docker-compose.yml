@@ -28,6 +28,129 @@ services:
       timeout: 5s
       retries: 10
 
+  content-service:
+    build:
+      context: ../ContentService
+      dockerfile: Dockerfile
+    environment:
+      NODE_ENV: ${CONTENT_SERVICE_NODE_ENV:-production}
+      HTTP_HOST: 0.0.0.0
+      HTTP_PORT: ${CONTENT_SERVICE_HTTP_PORT:-4600}
+      LOG_LEVEL: ${CONTENT_SERVICE_LOG_LEVEL:-info}
+      SERVICE_AUTH_TOKEN: ${SERVICE_AUTH_TOKEN:?SERVICE_AUTH_TOKEN is required}
+      CDN_BASE_URL: ${CONTENT_SERVICE_CDN_BASE_URL:-https://cdn.local.pocketlol}
+      DEFAULT_OWNER_ID: ${CONTENT_SERVICE_DEFAULT_OWNER_ID:-00000000-0000-0000-0000-000000000001}
+    ports:
+      - "${CONTENT_SERVICE_HTTP_HOST_PORT:-4600}:${CONTENT_SERVICE_HTTP_PORT:-4600}"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -fsS http://localhost:${HTTP_PORT:-4600}/health >/dev/null || exit 1",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  engagement-service:
+    build:
+      context: ../EngagementService
+      dockerfile: Dockerfile
+    environment:
+      NODE_ENV: ${ENGAGEMENT_SERVICE_NODE_ENV:-production}
+      HTTP_HOST: 0.0.0.0
+      HTTP_PORT: ${ENGAGEMENT_SERVICE_HTTP_PORT:-4700}
+      LOG_LEVEL: ${ENGAGEMENT_SERVICE_LOG_LEVEL:-info}
+      SERVICE_AUTH_TOKEN: ${SERVICE_AUTH_TOKEN:?SERVICE_AUTH_TOKEN is required}
+    ports:
+      - "${ENGAGEMENT_SERVICE_HTTP_HOST_PORT:-4700}:${ENGAGEMENT_SERVICE_HTTP_PORT:-4700}"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -fsS http://localhost:${HTTP_PORT:-4700}/health >/dev/null || exit 1",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  search-service:
+    build:
+      context: ../SearchService
+      dockerfile: Dockerfile
+    environment:
+      NODE_ENV: ${SEARCH_SERVICE_NODE_ENV:-production}
+      HTTP_HOST: 0.0.0.0
+      HTTP_PORT: ${SEARCH_SERVICE_HTTP_PORT:-4800}
+      LOG_LEVEL: ${SEARCH_SERVICE_LOG_LEVEL:-info}
+      SERVICE_AUTH_TOKEN: ${SERVICE_AUTH_TOKEN:?SERVICE_AUTH_TOKEN is required}
+      DEFAULT_PAGE_SIZE: ${SEARCH_SERVICE_DEFAULT_PAGE_SIZE:-20}
+    ports:
+      - "${SEARCH_SERVICE_HTTP_HOST_PORT:-4800}:${SEARCH_SERVICE_HTTP_PORT:-4800}"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -fsS http://localhost:${HTTP_PORT:-4800}/health >/dev/null || exit 1",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  streaming-service:
+    build:
+      context: ../StreamingService
+      dockerfile: Dockerfile
+    environment:
+      NODE_ENV: ${STREAMING_SERVICE_NODE_ENV:-production}
+      HTTP_HOST: 0.0.0.0
+      HTTP_PORT: ${STREAMING_SERVICE_HTTP_PORT:-4900}
+      LOG_LEVEL: ${STREAMING_SERVICE_LOG_LEVEL:-info}
+      SERVICE_AUTH_TOKEN: ${SERVICE_AUTH_TOKEN:?SERVICE_AUTH_TOKEN is required}
+      CDN_BASE_URL: ${STREAMING_SERVICE_CDN_BASE_URL:-https://stream.cdn.pocketlol}
+      SIGNED_URL_TTL_SECONDS: ${STREAMING_SERVICE_SIGNED_URL_TTL_SECONDS:-300}
+    ports:
+      - "${STREAMING_SERVICE_HTTP_HOST_PORT:-4900}:${STREAMING_SERVICE_HTTP_PORT:-4900}"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -fsS http://localhost:${HTTP_PORT:-4900}/health >/dev/null || exit 1",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  upload-service:
+    build:
+      context: ../UploadService
+      dockerfile: Dockerfile
+    environment:
+      NODE_ENV: ${UPLOAD_SERVICE_NODE_ENV:-production}
+      HTTP_HOST: 0.0.0.0
+      HTTP_PORT: ${UPLOAD_SERVICE_HTTP_PORT:-5000}
+      LOG_LEVEL: ${UPLOAD_SERVICE_LOG_LEVEL:-info}
+      SERVICE_AUTH_TOKEN: ${SERVICE_AUTH_TOKEN:?SERVICE_AUTH_TOKEN is required}
+      UPLOAD_BUCKET: ${UPLOAD_SERVICE_BUCKET:-pocketlol-uploads}
+      CDN_UPLOAD_BASE_URL: ${UPLOAD_SERVICE_CDN_BASE_URL:-https://upload.cdn.pocketlol}
+      SIGNED_UPLOAD_TTL_SECONDS: ${UPLOAD_SERVICE_SIGNED_UPLOAD_TTL_SECONDS:-600}
+    ports:
+      - "${UPLOAD_SERVICE_HTTP_HOST_PORT:-5000}:${UPLOAD_SERVICE_HTTP_PORT:-5000}"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -fsS http://localhost:${HTTP_PORT:-5000}/health >/dev/null || exit 1",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
   user-service:
     build:
       context: ../UserService
@@ -109,6 +232,16 @@ services:
         condition: service_healthy
       user-service:
         condition: service_healthy
+      content-service:
+        condition: service_healthy
+      engagement-service:
+        condition: service_healthy
+      search-service:
+        condition: service_healthy
+      streaming-service:
+        condition: service_healthy
+      upload-service:
+        condition: service_healthy
     environment:
       NODE_ENV: ${GATEWAY_NODE_ENV:-production}
       SERVER_HOST: 0.0.0.0
@@ -125,13 +258,13 @@ services:
       AUTH_AUDIENCE: ${GATEWAY_AUTH_AUDIENCE:-pocketlol-services}
       AUTH_ISSUER: ${GATEWAY_AUTH_ISSUER:-auth-service}
       CONTENT_CACHE_TTL_SECONDS: ${GATEWAY_CONTENT_CACHE_TTL:-120}
-      STREAMING_SERVICE_URL: ${STREAMING_SERVICE_URL:-http://mock-streaming:3000}
-      CONTENT_SERVICE_URL: ${CONTENT_SERVICE_URL:-http://mock-content:3000}
+      STREAMING_SERVICE_URL: http://streaming-service:${STREAMING_SERVICE_HTTP_PORT:-4900}
+      CONTENT_SERVICE_URL: http://content-service:${CONTENT_SERVICE_HTTP_PORT:-4600}
       AUTH_SERVICE_URL: http://auth-service:${AUTH_SERVICE_HTTP_PORT:-4000}
       USER_SERVICE_URL: http://user-service:${USER_SERVICE_HTTP_PORT:-4500}
-      UPLOAD_SERVICE_URL: ${UPLOAD_SERVICE_URL:-http://mock-upload:3000}
-      ENGAGEMENT_SERVICE_URL: ${ENGAGEMENT_SERVICE_URL:-http://mock-engagement:3000}
-      SEARCH_SERVICE_URL: ${SEARCH_SERVICE_URL:-http://mock-search:3000}
+      UPLOAD_SERVICE_URL: http://upload-service:${UPLOAD_SERVICE_HTTP_PORT:-5000}
+      ENGAGEMENT_SERVICE_URL: http://engagement-service:${ENGAGEMENT_SERVICE_HTTP_PORT:-4700}
+      SEARCH_SERVICE_URL: http://search-service:${SEARCH_SERVICE_HTTP_PORT:-4800}
       SERVICE_AUTH_TOKEN: ${SERVICE_AUTH_TOKEN:?SERVICE_AUTH_TOKEN is required}
       ENABLE_TELEMETRY: ${GATEWAY_ENABLE_TELEMETRY:-false}
       SERVICE_NAME: ${GATEWAY_SERVICE_NAME:-pocketlol-gateway}
