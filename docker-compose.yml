@@ -53,6 +53,8 @@ services:
       CDN_BASE_URL: ${CONTENT_SERVICE_CDN_BASE_URL:-https://cdn.local.pocketlol}
       DEFAULT_OWNER_ID: ${CONTENT_SERVICE_DEFAULT_OWNER_ID:-00000000-0000-0000-0000-000000000001}
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${CONTENT_SERVICE_DB:-pocketlol_content}?schema=public
+      ENGAGEMENT_SERVICE_URL: http://engagement-service:${ENGAGEMENT_SERVICE_HTTP_PORT:-4700}
+      SUBSCRIPTION_SERVICE_URL: http://subscription-service:${SUBSCRIPTION_SERVICE_HTTP_PORT:-5100}
     ports:
       - "${CONTENT_SERVICE_HTTP_HOST_PORT:-4600}:${CONTENT_SERVICE_HTTP_PORT:-4600}"
     healthcheck:
